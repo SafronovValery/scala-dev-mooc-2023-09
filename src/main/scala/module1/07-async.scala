@@ -3,10 +3,10 @@ package module1
 import module1.utils.NameableThreads
 
 import java.io.File
+import java.util.concurrent.{Executor, ExecutorService, Executors, LinkedBlockingQueue}
 import java.util.{Timer, TimerTask}
-import java.util.concurrent.{Executor, ExecutorService, Executors}
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.io.{BufferedSource, Source}
 import scala.language.{existentials, postfixOps}
 import scala.util.{Failure, Success, Try}
@@ -87,14 +87,31 @@ object threads {
     v
   }
 
-  class ToyFuture[T] private(v: => T){
+
+
+
+  class ToyFuture[T] private( v: => T){
 
     private var isCompleted: Boolean = false
     private var r: T = null.asInstanceOf[T]
     private val q = mutable.Queue[T => _]()
 
-    def map[B](f: T => B): ToyFuture[B] = ???
-    def flatMap[B](f: T => ToyFuture[B]): ToyFuture[B] = ???
+
+    //реализован
+    def map[B](f: T => B)(implicit  executor: Executor): ToyFuture[B] = ToyFuture[B] {
+
+      val innerQ = new LinkedBlockingQueue[B]
+      this.onComplete {
+        res => innerQ.put(f(res))
+      }
+
+      innerQ.take()
+    } (executor)
+
+
+
+    //реализован
+    def flatMap[B](f: T => ToyFuture[B]): ToyFuture[B] = f(v)
 
 
     def onComplete[U](f: T => U): Unit = {
@@ -256,29 +273,48 @@ object promise {
   val f1: Future[Int] = p1.future
 
   object FutureSyntax{
-    def map[T, B](future: Future[T])(f: T => B): Future[B] = {
+    //реализован
+    def map[T, B](future: Future[T])(f: T => B)(implicit exc: ExecutionContext): Future[B] = {
       val p = Promise[B]
       future.onComplete {
         case Failure(exception) => p.failure(exception)
         case Success(value) => p.complete(Try(f(value)))
-      }(scala.concurrent.ExecutionContext.global)
+      }(exc)
       p.future
     }
 
-    def flatMap[T, B](future: Future[T])(f: T => Future[B]): Future[B] = ???
+    //реализован
+    def flatMap[T, B](future: Future[T])(f: T => Future[B])(implicit exc: ExecutionContext): Future[B] = {
+      val p = Promise[Future[B]]
+      future.onComplete {
+        case Failure(exception) => p.failure(exception)
+        case Success(value) => p.complete(Try(f(value)))
+      }(exc)
 
-    def make[T](v: => T)(ec: ExecutionContext): Future[T] = {
-      ???
+     p.future.flatten
     }
 
-    def make[T](v: => T, timeout: Long): Future[T] = {
+    //реализован
+    def make[T](v: => T)(implicit  ec: ExecutionContext): Future[T] = Future(v)(ec)
+
+    //реализован
+    def make[T](v: => T, timeout: Long) (implicit  ec: ExecutionContext): Future[T] = {
       val p = Promise[T]
+      val future = Future(v)
+      future.onComplete {
+        case Failure(exception) => if(!p.isCompleted) p.failure(exception)
+        case Success(value) => if(!p.isCompleted) p.complete(Try(value))
+      }
+
       val timer = new Timer(true)
       val task = new TimerTask {
-        override def run(): Unit = ???
+        override def run(): Unit = {
+         if(!p.isCompleted) p.failure(new Exception("Timeout Exception"))
+        }
       }
+
       timer.schedule(task, timeout)
-      ???
+      p.future
     }
   }
 
