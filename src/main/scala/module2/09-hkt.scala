@@ -31,12 +31,12 @@ object higher_kinded_types{
     fa.flatMap(a => fb.map(b => (a, b)))
 
 
-  def optBindable[A](opt: Option[A]): Bindable[Option, A] = new Bindable[Option, A] {
+  implicit def optBindable[A](opt: Option[A]): Bindable[Option, A] = new Bindable[Option, A] {
     override def map[B](f: A => B): Option[B] = opt.map(f)
     override def flatMap[B](f: A => Option[B]): Option[B] = opt.flatMap(f)
   }
 
-  def listBindable[A](list: List[A]): Bindable[List, A] = new Bindable[List, A] {
+  implicit def listBindable[A](list: List[A]): Bindable[List, A] = new Bindable[List, A] {
     override def map[B](f: A => B): List[B] = list.map(f)
     override def flatMap[B](f: A => List[B]): List[B] = list.flatMap(f)
   }
@@ -51,15 +51,22 @@ object higher_kinded_types{
 
   }
 
+  object BindCore {
+    def apply[F[_]](implicit ev: BindCore[F]): BindCore[F] = ev
+
+  }
+
   implicit val  optBind: BindCore[Option] = new BindCore[Option] {
     override def map[A, B](optA: Option[A])(f: A => B): Option[B] = optA.map(f)
     override def flatMap[A, B](optA: Option[A])(f: A => Option[B]): Option[B] = optA.flatMap(f)
+
   }
-  implicit val listBind: BindCore[List] = new BindCore[List] {
+  implicit val listBind:BindCore[List] = new BindCore[List] {
     override def map[A, B](listA: List[A])(f: A => B): List[B] = listA.map(f)
     override def flatMap[A, B](listA: List[A])(f: A => List[B]): List[B] = listA.flatMap(f)
-  }
 
+
+  }
 
   //ревлизация 2
   //используем таки предложенный выше  trait Bindable[F[_], A]
@@ -72,42 +79,15 @@ object higher_kinded_types{
 
     def apply[F[_]](implicit ev: BindCore2[F]): BindCore2[F] = ev
 
-     // функция абстрагирующая создание экземпляров Bindable для любого типа контейнера
-    def createBindable[F[_]:BindCore2,A](box: F[A]): Bindable[F, A] =  new Bindable[F, A] {
-      override def map[B](f: A => B): F[B] = box.bindable.map(f)
-      override def flatMap[B](f: A => F[B]): F[B] = box.bindable.flatMap(f)
-    }
-
-     //  в этом кортеже можно собрать реализвции BindCore2 для всех обрабатываемых типов контейнеров
-     val valBind3: (BindCore2[Option], BindCore2[List]) =  (
-       new BindCore2[Option] {
-       override def bindable[A](box: Option[A]): Bindable[Option, A] = new Bindable[Option, A] {
-         override def map[B](f: A => B): Option[B] = box.map(f)
-
-         override def flatMap[B](f: A => Option[B]): Option[B] = box.flatMap(f)
-       }},
-       new BindCore2[List] {
-         override def bindable[A](box: List[A]): Bindable[List, A] = new Bindable[List, A] {
-           override def map[B](f: A => B): List[B] = box.map(f)
-
-           override def flatMap[B](f: A => List[B]): List[B] = box.flatMap(f)
-         }}
-       )
-
-     //созжание имплиситного преобразования для Option
      implicit def optBind2: BindCore2[Option] = new BindCore2[Option] {
-       override def bindable[A](v: Option[A] ): Bindable[Option, A] = BindCore2.createBindable[Option, A](v)(valBind3._1)
+       override def bindable[A](v: Option[A]): Bindable[Option, A] = v
      }
 
-     //созжание имплиситного преобразования для List
+
      implicit def listBind2: BindCore2[List] = new BindCore2[List] {
-       override def bindable[A](v: List[A]): Bindable[List, A] = BindCore2.createBindable[List, A](v)(valBind3._2)
+       override def bindable[A](v: List[A]): Bindable[List, A] = v
      }
 
-      //Примечвние!
-      //Пытаюсь абстрагировать код в opBind2 и listBind2 от типа контейнера..
-      //Пока не очень хорошо получается из за map и flatMap
-      //Как абстрагировать Option и List , если надо использовать map и flatMap ? Эти методы не объявлены в общем предке...
   }
 
   implicit class BindImplicit[F[_], A](v: F[A]) {
@@ -121,6 +101,17 @@ object higher_kinded_types{
     ax <- fa.bindable
     bx <- fb.bindable
   } yield (ax, bx)
+
+////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  implicit def createBindable[F[_] : BindCore2, A](box: F[A]): Bindable[F, A] = new Bindable[F, A] {
+    override def map[B](f: A => B): F[B] = box.bindable.map(f)
+
+    override def flatMap[B](f: A => F[B]): F[B] = box.bindable.flatMap(f)
+  }
+
+  def tuplef_4[F[_]:BindCore2,A,B](fa: F[A], fb: F[B]): F[(A, B)] = tupleBindable(fa,fb)
 
 
     val optA: Option[Int] = Some(1)
@@ -137,7 +128,8 @@ object higher_kinded_types{
     lazy val r2 = println(tuplef(list1, list2))
 
     lazy val r1_2 = println(tuplef_2(optA, optB))
-    lazy val r2_2 = println(tuplef_2(list1, list2))
+    lazy val r2_3 = println(tuplef_3(list1, list2))
+    lazy val r2_4 = println(tuplef_4(list1, list2))
 
     // проверка написана в Main
     // Unit тесты написаны в src/test/scala/homework_tests/homework_tests.scala
