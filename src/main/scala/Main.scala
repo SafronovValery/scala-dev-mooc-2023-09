@@ -1,70 +1,31 @@
-import module1.threads.{Foo, Thread1, ToyFuture, getRatesLocation1, getRatesLocation2, getRatesLocation3, getRatesLocation4, getRatesLocation5, getRatesLocation6, getRatesLocation7, getRatesLocation8, printRunningTime}
-import module1.{future, promise, try_}
-import module2.implicits
-
-import scala.concurrent.{Await, Future, TimeoutException}
-import scala.concurrent.duration.DurationInt
-import scala.util.{Failure, Success}
+import module2.higher_kinded_types.{tuplef, tuplef_2, tuplef_3}
 
 object Main {
 
   def main(args: Array[String]): Unit = {
-    println(s"Hello world " +
-      s"[${Thread.currentThread().getName}]")
 
-//    val t1 = new Thread{
-//      override def run(): Unit = {
-//        Thread.sleep(1000)
-//        println(s"Hello from " +
-//          s"[${Thread.currentThread().getName}]")
-//      }
-//    }
-//    val t2 = new Thread1
-//    t1.start()
-//    t2.start()
-//    t1.join()
+    val optA: Option[Int] = Some(1)
+    val optB: Option[Int] = Some(2)
 
-//    def rates = {
-//      val start = System.currentTimeMillis()
-//
-//      getRatesLocation7.onComplete{ i1 =>
-//        getRatesLocation8.onComplete{ i2 =>
-//          println(i1 + i2)
-//          val end = System.currentTimeMillis()
-//          println(s"Execution time ${end - start}")
-//        }
-//      }
-//    }
-//
-//    val result: ToyFuture[Int] = for{
-//      i1 <- getRatesLocation7
-//      i2 <- getRatesLocation8
-//    } yield i1 + i2
-//
-//
-//    printRunningTime(rates)
+    val list1 = List(1, 2, 3)
+    val list2 = List(4, 5)
 
-      val f: Future[(String, String)] = future.printRunningTime(future.getRatesLocation1
-        .flatMap(r =>
-          future.getRatesLocation2.map(r2 =>
-            (r, r2))(scala.concurrent.ExecutionContext.global))
-      (scala.concurrent.ExecutionContext.global))
+    println("tuplef")
+    println(tuplef(optA, optB))
+    println(tuplef(list1, list2))
+    println
 
-//    f.onComplete {
-//      case Failure(exception) => println(exception.getMessage)
-//      case Success(value) => println(value)
-//    }(scala.concurrent.ExecutionContext.global)
+    println("tuplef_2")
+    println(tuplef_2(optA, optB))
+    println(tuplef_2(list1, list2))
+    println
 
-//    val r = Await.result(future.f9, 3.second)
-//    println(r)
+    println("tuplef_3")
+    println(tuplef_3(optA, optB))
+    println(tuplef_3(list1, list2))
+    println(tuplef_3(list2, list1))
+    println(tuplef_3(list1, List()))
+    println(tuplef_3(List(), list2))
 
-//    println(promise.p1.isCompleted)
-//    println(promise.f1.isCompleted)
-//    promise.p1.failure(new Exception("ooops"))
-//    println(promise.p1.isCompleted)
-//    println(promise.f1.isCompleted)
-//    println(Await.result(promise.f1.recover{case _ => 0}(scala.concurrent.ExecutionContext.global), 3.second))
-
-    implicits.implicit_scopes.result
-  }
+}
 }
